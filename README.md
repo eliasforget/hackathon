@@ -18,7 +18,7 @@ Ce dépôt fournit l’ossature Docker pour :
    - API Spring Boot : http://localhost:8080  
    - Angular : http://localhost:4200  
 
-## Lancer le Docker pour un collègue
+## Lancer le Docker
 1. Cloner le dépôt et se placer dedans : `cd HACKATHON`.
 2. Copier l'environnement : `cp .env.example .env` puis, si besoin, modifier `POSTGRES_PASSWORD`, `JWT_SECRET` (≥32 caractères), `API_URL`.
 3. Démarrer les conteneurs : `docker compose up --build -d`
