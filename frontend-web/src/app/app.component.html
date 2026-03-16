@@ -1,0 +1,27 @@
+<main class="layout">
+  <header>
+    <h1>{{ title }}</h1>
+    <p>Front Angular connecté à l'API Spring Boot.</p>
+    <p class="api-url">API: {{ apiUrl }}</p>
+  </header>
+
+  <section class="card">
+    <h2>Health check</h2>
+    <button (click)="loadHealth()">Tester /api/health</button>
+    <pre *ngIf="health() as h">{{ h | json }}</pre>
+  </section>
+
+  <section class="card">
+    <h2>Auth JWT démo</h2>
+    <button (click)="loginDemo()">Obtenir un token (demo/demo)</button>
+    <p *ngIf="token()">Token présent</p>
+  </section>
+
+  <section class="card">
+    <h2>Appel protégé</h2>
+    <button (click)="loadHello()">GET /api/hello</button>
+    <pre *ngIf="hello() as h">{{ h | json }}</pre>
+  </section>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+</main>

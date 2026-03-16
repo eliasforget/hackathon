@@ -1,0 +1,47 @@
+main.layout {
+  font-family: 'Segoe UI', sans-serif;
+  max-width: 960px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+header {
+  margin-bottom: 1.5rem;
+}
+
+.card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+button {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1e4fb4;
+}
+
+pre {
+  background: #0b1021;
+  color: #d1e8ff;
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.api-url {
+  font-family: monospace;
+}
+
+.error {
+  color: #c53030;
+}
