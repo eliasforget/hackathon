@@ -1,4 +1,4 @@
-# Angular build → nginx runtime
+# Frontend build → nginx runtime
 FROM node:20-alpine AS build
 WORKDIR /app
 
@@ -10,12 +10,12 @@ COPY . .
 ARG API_URL=http://localhost:8080
 ENV NG_APP_API_URL=${API_URL}
 
-# Pass API URL into Angular environment via build flag
+# Pass API URL into frontend environment via build flag
 RUN npm run build -- --configuration production --base-href=/ --output-path=dist
 
 FROM nginx:1.27-alpine AS runtime
 WORKDIR /usr/share/nginx/html
-# Angular application output is in dist/browser with the new application builder
+# Application output is in dist/browser with the new application builder
 COPY --from=build /app/dist/browser/ ./
 
 # SPA fallback config

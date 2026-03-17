@@ -1,5 +1,5 @@
 #!/bin/sh
-# Inject API URL into runtime config expected by the Angular app.
+# Inject API URL into runtime config expected by the app.
 set -e
 
 API_URL="${API_URL:-http://localhost:8080}"

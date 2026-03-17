@@ -1,11 +1,11 @@
 <main class="layout">
   <header>
     <div>
-      <p class="eyebrow">
+      <p class="eyebrow" *ngIf="!isHistoryPage()">
         Dashboard empreinte carbone
         <span *ngIf="site.name"> - {{ site.name }}</span>
       </p>
-      <h1>{{ title }}</h1>
+      <h1>Hackathon</h1>
     </div>
     <div class="nav-actions">
       <button class="ghost" [routerLink]="['/']" [disabled]="!isHistoryPage()">Dashboard</button>
@@ -75,9 +75,9 @@
         </div>
         <div class="repeat-grid">
           <div class="repeat-row" *ngFor="let m of modalForm.materials; index as i">
-            <select [(ngModel)]="m.name" (change)="onMaterialNameChange(i)">
+            <select class="styled-select" [(ngModel)]="m.name" (change)="onMaterialNameChange(i)">
               <option value="">Choisir</option>
-              <option *ngFor="let opt of materialOptions" [value]="opt">{{ opt }}</option>
+              <option *ngFor="let opt of getMaterialOptionsFor(i)" [value]="opt">{{ opt }}</option>
             </select>
             <input type="number" min="0" placeholder="Quantité" [(ngModel)]="m.quantity" />
             <input type="text" placeholder="Unité" [(ngModel)]="m.unit" />
@@ -93,9 +93,9 @@
         </div>
         <div class="repeat-grid">
           <div class="repeat-row" *ngFor="let e of modalForm.energy; index as i">
-            <select [(ngModel)]="e.source">
+            <select class="styled-select" [(ngModel)]="e.source">
               <option value="">Choisir</option>
-              <option *ngFor="let opt of energyOptions" [value]="opt">{{ opt }}</option>
+              <option *ngFor="let opt of getEnergyOptionsFor(i)" [value]="opt">{{ opt }}</option>
             </select>
             <input type="number" min="0" placeholder="kWh" [(ngModel)]="e.kwh" />
             <button class="ghost" type="button" (click)="removeEnergyRow(i)">×</button>
@@ -119,7 +119,7 @@
       <div class="history-actions">
         <label class="filter-label">
           Filtrer par lieu
-          <select [(ngModel)]="locationFilter">
+          <select class="styled-select" [(ngModel)]="locationFilter">
             <option value="all">Tous</option>
             <option *ngFor="let loc of uniqueLocations" [value]="loc">{{ loc }}</option>
           </select>
@@ -136,13 +136,46 @@
             Surface {{ h.surface | number }} m² · {{ h.energyKwh | number }} kWh · {{ h.employees | number }} employés
           </small>
         </div>
-        <span class="pill">{{ h.ts | date:'short' }}</span>
+        <div class="history-row-actions">
+          <span class="pill">{{ h.ts | date:'short' }}</span>
+          <button
+            type="button"
+            class="ghost danger"
+            (click)="openDeleteConfirm(h)"
+            aria-label="Supprimer cette ligne d'historique"
+          >
+            Supprimer
+          </button>
+        </div>
       </div>
       <div class="history-empty" *ngIf="filteredHistory.length === 0">
         Aucun historique pour le moment.
       </div>
     </div>
   </section>
+
+  <div class="modal-backdrop" *ngIf="pendingDeletion" (click)="closeDeleteConfirm()"></div>
+  <div class="modal confirm-modal" *ngIf="pendingDeletion">
+    <div class="modal-header">
+      <h3>Supprimer cette ligne ?</h3>
+      <button class="close-btn" (click)="closeDeleteConfirm()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="confirm-meta">
+        <strong>{{ pendingDeletion?.totalKg | number:'1.0-0' }} kgCO₂e</strong>
+        <small>
+          <span *ngIf="pendingDeletion?.location">{{ pendingDeletion?.location }} · </span>
+          Surface {{ pendingDeletion?.surface | number }} m² · {{ pendingDeletion?.energyKwh | number }} kWh ·
+          {{ pendingDeletion?.employees | number }} employés
+        </small>
+        <span class="pill">{{ pendingDeletion?.ts | date:'short' }}</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="ghost" type="button" (click)="closeDeleteConfirm()">Annuler</button>
+      <button class="danger" type="button" (click)="confirmDelete()">Supprimer</button>
+    </div>
+  </div>
 
   <section class="card selector-card" *ngIf="!isHistoryPage()">
     <div class="selector-row">

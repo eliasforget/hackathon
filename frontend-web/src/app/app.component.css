@@ -295,6 +295,10 @@ button:hover { background: #f4870a; }
   border: 1px solid #e5e7eb;
 }
 
+.confirm-modal {
+  max-width: 440px;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -340,6 +344,13 @@ button:hover { background: #f4870a; }
   box-shadow: none;
 }
 .modal-actions .ghost:hover { background: #f3f4f6; }
+
+.modal-actions .danger {
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(220, 38, 38, 0.2);
+}
+.modal-actions .danger:hover { background: #b91c1c; }
 
 .history-card h2 {
   margin-top: 0.2rem;
@@ -397,6 +408,28 @@ button:hover { background: #f4870a; }
   background: #fff;
 }
 
+.styled-select {
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid #d8e2ec;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #9ca3af 50%), linear-gradient(135deg, #9ca3af 50%, transparent 50%), linear-gradient(to right, #fff, #fff);
+  background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 13px) calc(50% - 3px), calc(100% - 2.2rem) 0.5rem;
+  background-size: 8px 8px, 8px 8px, 1px 1.8rem;
+  background-repeat: no-repeat;
+}
+
+.styled-select:focus {
+  outline: none;
+  border-color: #ff9f1c;
+  box-shadow: 0 0 0 3px rgba(255, 159, 28, 0.18);
+  transform: translateY(-1px);
+}
+
 .filter-label {
   display: flex;
   flex-direction: column;
@@ -429,8 +462,33 @@ button:hover { background: #f4870a; }
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
 }
 
+.history-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
 .history-row strong { display: block; color: #1f2933; }
 .history-row small { color: #6b7280; }
+
+.history-row .ghost.danger {
+  background: transparent;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  box-shadow: none;
+  padding: 0.4rem 0.7rem;
+}
+
+.history-row .ghost.danger:hover { background: #fee2e2; }
+
+.confirm-meta {
+  display: grid;
+  gap: 0.35rem;
+  align-items: center;
+}
+.confirm-meta .pill {
+  justify-self: start;
+}
 
 .pill {
   padding: 0.3rem 0.75rem;

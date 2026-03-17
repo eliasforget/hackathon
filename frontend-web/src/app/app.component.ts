@@ -12,6 +12,7 @@ type MaterialUse = { name: string; quantity: number; unit: string };
 type EnergyUse = { source: string; kwh: number };
 type EnergyFactor = { source: string; factor: number };
 type HistoryEntry = {
+  id?: number;
   ts: string;
   surface: number;
   energyKwh: number;
@@ -31,7 +32,7 @@ type HistoryEntry = {
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
-  title = 'Hackathon Angular';
+  title = 'Hackathon';
   apiUrl = getApiUrl();
 
   // Démo API
@@ -86,13 +87,28 @@ export class AppComponent implements OnInit {
   private readonly HISTORY_KEY = 'history-cache';
   selectedSite: string = '';
   selectedTs: string = '';
+  pendingDeletion: HistoryEntry | null = null;
 
   get materialOptions(): string[] {
     return this.materialFactors.map(m => m.name);
   }
 
+  getMaterialOptionsFor(index: number): string[] {
+    const selectedNames = this.modalForm.materials
+      .map((m, i) => (i === index ? null : m.name))
+      .filter((v): v is string => !!v);
+    return this.materialOptions.filter(opt => !selectedNames.includes(opt));
+  }
+
   get energyOptions(): string[] {
     return this.energyFactors.map(e => e.source);
+  }
+
+  getEnergyOptionsFor(index: number): string[] {
+    const selectedSources = this.modalForm.energy
+      .map((e, i) => (i === index ? null : e.source))
+      .filter((v): v is string => !!v);
+    return this.energyOptions.filter(opt => !selectedSources.includes(opt));
   }
 
   constructor(private http: HttpClient, private router: Router) {}
@@ -316,6 +332,64 @@ export class AppComponent implements OnInit {
   get filteredHistory(): HistoryEntry[] {
     if (this.locationFilter === 'all') return this.history;
     return this.history.filter(h => (h.location || '') === this.locationFilter);
+  }
+
+  openDeleteConfirm(entry: HistoryEntry): void {
+    this.pendingDeletion = entry;
+  }
+
+  closeDeleteConfirm(): void {
+    this.pendingDeletion = null;
+  }
+
+  confirmDelete(): void {
+    if (this.pendingDeletion) {
+      this.deleteHistory(this.pendingDeletion);
+      this.pendingDeletion = null;
+    }
+  }
+
+  deleteHistory(entry: HistoryEntry): void {
+    if (entry.id) {
+      this.http.delete<void>(`${this.apiUrl}/api/history/${entry.id}`, this.authOptions()).subscribe({
+        next: () => this.removeHistoryLocally(entry),
+        error: () => this.removeHistoryLocally(entry) // fallback: still remove locally
+      });
+    } else {
+      this.removeHistoryLocally(entry);
+    }
+  }
+
+  private removeHistoryLocally(entry: HistoryEntry): void {
+    const wasSelected = this.selectedTs === entry.ts;
+    this.history = this.history.filter(h => h.ts !== entry.ts);
+
+    if (this.locationFilter === (entry.location || '') && !this.history.some(h => (h.location || '') === (entry.location || ''))) {
+      this.locationFilter = 'all';
+    }
+
+    if (wasSelected) {
+      const next = this.history.find(h => (h.location || '') === entry.location) || this.history[0];
+      if (next) {
+        this.applyEntryToSite(next);
+        this.selectedSite = next.location || '';
+        this.selectedTs = next.ts;
+      } else {
+        this.selectedSite = '';
+        this.selectedTs = '';
+        this.site = {
+          name: '',
+          surface: 0,
+          parkingSpots: 0,
+          annualEnergyKWh: 0,
+          employees: 0,
+          materials: [],
+          energy: []
+        };
+      }
+    }
+
+    this.persistHistory();
   }
 
   get uniqueLocations(): string[] {

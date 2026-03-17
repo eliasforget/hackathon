@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/history")
@@ -34,5 +35,15 @@ public class HistoryController {
         }
         HistoryEntry saved = historyRepository.save(body);
         return ResponseEntity.ok(saved);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        Optional<HistoryEntry> existing = historyRepository.findById(id);
+        if (existing.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        historyRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }
