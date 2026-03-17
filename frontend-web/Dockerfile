@@ -18,6 +18,9 @@ WORKDIR /usr/share/nginx/html
 # Angular application output is in dist/browser with the new application builder
 COPY --from=build /app/dist/browser/ ./
 
+# SPA fallback config
+COPY default.conf /etc/nginx/conf.d/default.conf
+
 # Simple runtime env injection for API URL
 COPY docker-entrypoint.sh /docker-entrypoint.d/10-env.sh
 RUN chmod +x /docker-entrypoint.d/10-env.sh

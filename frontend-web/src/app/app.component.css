@@ -19,6 +19,12 @@ header {
 
 h1 { margin: 0.2rem 0 0.4rem; }
 
+.nav-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -129,6 +135,38 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+.fieldset {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.9rem;
+  background: #ffffff;
+}
+
+.fieldset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.repeat-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.repeat-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.repeat-row button.ghost {
+  padding: 0.35rem 0.6rem;
 }
 
 .split {
@@ -306,6 +344,72 @@ button:hover { background: #f4870a; }
 .history-card h2 {
   margin-top: 0.2rem;
   margin-bottom: 0.8rem;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.history-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.history-card button.ghost {
+  background: transparent;
+  color: #111827;
+  border: 1px solid #d8e2ec;
+  box-shadow: none;
+  padding: 0.45rem 0.9rem;
+}
+.history-card button.ghost:hover {
+  background: #f3f4f6;
+}
+
+.selector-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.selector-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.selector-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.selector-card select {
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid #d8e2ec;
+  background: #fff;
+}
+
+.filter-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+  color: #374151;
+  gap: 0.25rem;
+}
+
+.filter-label select {
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #d8e2ec;
+  background: #ffffff;
 }
 
 .history-list {

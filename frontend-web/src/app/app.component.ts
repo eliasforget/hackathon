@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 type HelloResponse = { message: string; user: string; ts: string };
@@ -16,12 +17,16 @@ type HistoryEntry = {
   energyKwh: number;
   employees: number;
   totalKg: number;
+  location?: string;
+  materials: MaterialUse[];
+  energy: EnergyUse[];
+  parkingSpots?: number;
 };
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
@@ -34,30 +39,32 @@ export class AppComponent implements OnInit {
   hello = signal<HelloResponse | null>(null);
   error = signal<string | null>(null);
   token = signal<string | null>(null);
-  // Données métier (mock) pour le dashboard
+  // Données dynamiques pour le dashboard (chargées depuis l'historique ou saisie)
   site = {
     name: '',
-    surface: 15000, // m²
-    parkingSpots: 320,
-    annualEnergyKWh: 1_200_000,
-    employees: 850,
-    materials: [
-      { name: 'Béton', quantity: 1_200, unit: 'm3' },
-      { name: 'Acier', quantity: 180, unit: 'tonne' },
-      { name: 'Verre', quantity: 900, unit: 'm2' },
-      { name: 'Bois', quantity: 250, unit: 'm3' }
-    ] as MaterialUse[],
-    energy: [
-      { source: 'Électricité', kwh: 900_000 },
-      { source: 'Gaz naturel', kwh: 300_000 }
-    ] as EnergyUse[]
+    surface: 0,
+    parkingSpots: 0,
+    annualEnergyKWh: 0,
+    employees: 0,
+    materials: [] as MaterialUse[],
+    energy: [] as EnergyUse[]
   };
 
   modalOpen = signal<boolean>(false);
-  modalForm = {
-    surface: this.site.surface,
-    energyKwh: this.site.energy[0]?.kwh ?? 0,
-    employees: this.site.employees
+  modalForm: {
+    surface: number;
+    employees: number;
+    location: string;
+    parkingSpots: number;
+    materials: MaterialUse[];
+    energy: EnergyUse[];
+  } = {
+    surface: 0,
+    employees: 0,
+    location: '',
+    parkingSpots: 0,
+    materials: [],
+    energy: []
   };
 
   materialFactors: MaterialFactor[] = [
@@ -72,24 +79,58 @@ export class AppComponent implements OnInit {
     { source: 'Gaz naturel', factor: 0.20 }     // kgCO2e / kWh
   ];
 
-  history: HistoryEntry[] = [
-    { ts: new Date('2024-12-01T10:12:00Z').toISOString(), surface: 15000, energyKwh: 1_200_000, employees: 850, totalKg: 781_500 },
-    { ts: new Date('2024-11-15T09:40:00Z').toISOString(), surface: 14200, energyKwh: 1_050_000, employees: 820, totalKg: 702_000 }
-  ];
+  history: HistoryEntry[] = [];
+  loadingHistory = false;
+  historyError: string | null = null;
+  locationFilter: string = 'all';
+  private readonly HISTORY_KEY = 'history-cache';
+  selectedSite: string = '';
+  selectedTs: string = '';
 
-  constructor(private http: HttpClient) {}
+  get materialOptions(): string[] {
+    return this.materialFactors.map(m => m.name);
+  }
+
+  get energyOptions(): string[] {
+    return this.energyFactors.map(e => e.source);
+  }
+
+  constructor(private http: HttpClient, private router: Router) {}
 
   ngOnInit(): void {
-    // Dashboard est basé sur des données locales mockées ; pas d'appel API au chargement.
+    this.loadLocalHistory();
+    this.loginForHistory();
+  }
+
+  addMaterialRow(): void {
+    this.modalForm.materials = [...this.modalForm.materials, { name: '', quantity: 0, unit: 'm3' }];
+  }
+
+  removeMaterialRow(index: number): void {
+    this.modalForm.materials = this.modalForm.materials.filter((_, i) => i !== index);
+    if (this.modalForm.materials.length === 0) this.addMaterialRow();
+  }
+
+  addEnergyRow(): void {
+    this.modalForm.energy = [...this.modalForm.energy, { source: '', kwh: 0 }];
+  }
+
+  removeEnergyRow(index: number): void {
+    this.modalForm.energy = this.modalForm.energy.filter((_, i) => i !== index);
+    if (this.modalForm.energy.length === 0) this.addEnergyRow();
+  }
+
+  onMaterialNameChange(index: number): void {
+    const name = this.modalForm.materials[index]?.name;
+    const unit = this.materialFactors.find(f => f.name === name)?.unit;
+    if (unit) {
+      this.modalForm.materials[index].unit = unit;
+    }
   }
 
   openModal(): void {
-    // snapshot current values into form buffer
-    this.modalForm = {
-      surface: this.site.surface,
-      energyKwh: this.site.energy[0]?.kwh ?? 0,
-      employees: this.site.employees
-    };
+    // always start from a blank form to créer un nouveau site
+    this.resetModalForm();
     this.modalOpen.set(true);
   }
 
@@ -98,25 +139,192 @@ export class AppComponent implements OnInit {
   }
 
   saveModal(): void {
-    this.site.surface = this.modalForm.surface || 0;
-    if (this.site.energy.length === 0) {
-      this.site.energy.push({ source: 'Électricité', kwh: 0 });
-    }
-    this.site.energy[0].kwh = this.modalForm.energyKwh || 0;
-    this.site.employees = this.modalForm.employees || 0;
-    this.addHistoryEntry();
-    this.closeModal();
-  }
-
-  private addHistoryEntry(): void {
+    this.site.surface = Number(this.modalForm.surface) || 0;
+    this.site.employees = Number(this.modalForm.employees) || 0;
+    this.site.name = this.modalForm.location || '';
+    this.site.parkingSpots = Number(this.modalForm.parkingSpots) || 0;
+    this.site.materials = this.modalForm.materials
+      .map(m => ({ ...m, quantity: Number(m.quantity) || 0 }))
+      .filter(m => m.name && m.quantity >= 0);
+    this.site.energy = this.modalForm.energy
+      .map(e => ({ ...e, kwh: Number(e.kwh) || 0 }))
+      .filter(e => e.source && e.kwh >= 0);
     const entry: HistoryEntry = {
       ts: new Date().toISOString(),
       surface: this.site.surface,
-      energyKwh: this.site.energy[0]?.kwh ?? 0,
+      energyKwh: this.site.energy.reduce((s, e) => s + e.kwh, 0),
       employees: this.site.employees,
-      totalKg: this.totalEmissions
+      totalKg: this.totalEmissions,
+      location: this.site.name,
+      materials: this.site.materials,
+      energy: this.site.energy,
+      parkingSpots: this.site.parkingSpots
     };
-    this.history = [entry, ...this.history].slice(0, 10);
+    this.saveHistoryToApi(entry);
+    this.closeModal();
+    this.resetModalForm();
+  }
+
+  loadHistoryFromApi(): void {
+    this.loadingHistory = true;
+    this.historyError = null;
+    this.http.get<HistoryEntry[]>(`${this.apiUrl}/api/history`, this.authOptions()).subscribe({
+      next: (rows) => {
+        this.history = (rows || []).reverse();
+        if (this.history.length) {
+          this.applyEntryToSite(this.history[0]);
+          this.selectedSite = this.history[0].location || '';
+          this.selectedTs = this.history[0].ts;
+        }
+        this.persistHistory();
+        this.loadingHistory = false;
+        this.historyError = null;
+      },
+      error: () => {
+        this.historyError = 'Impossible de charger l’historique (API ?)';
+        this.loadingHistory = false;
+        // fallback local pour ne pas perdre l'affichage
+        this.loadLocalHistory();
+      }
+    });
+  }
+
+  private saveHistoryToApi(entry: HistoryEntry): void {
+    this.http.post<HistoryEntry>(`${this.apiUrl}/api/history`, entry, this.authOptions()).subscribe({
+      next: (saved) => {
+        const insert = saved || entry;
+        this.history = [insert, ...this.history];
+        this.applyEntryToSite(insert);
+        this.selectedSite = insert.location || '';
+        this.selectedTs = insert.ts;
+        this.historyError = null;
+        this.persistHistory();
+      },
+      error: () => {
+        this.historyError = 'Enregistrement en base impossible';
+        this.history = [entry, ...this.history];
+        this.applyEntryToSite(entry);
+        this.selectedSite = entry.location || '';
+        this.selectedTs = entry.ts;
+        this.persistHistory();
+      }
+    });
+  }
+
+  private loginForHistory(): void {
+    this.http.post<{ accessToken: string; tokenType: string }>(`${this.apiUrl}/api/auth/token`, {
+      username: 'demo',
+      password: 'demo'
+    }).subscribe({
+      next: (res) => {
+        this.token.set(res.accessToken);
+        this.historyError = null;
+        this.loadHistoryFromApi();
+      },
+      error: () => {
+        this.historyError = 'Auth demo impossible';
+        this.loadingHistory = false;
+      }
+    });
+  }
+
+  private authOptions() {
+    const t = this.token();
+    if (!t) return {};
+    return { headers: new HttpHeaders({ Authorization: `Bearer ${t}` }) };
+  }
+
+  private loadLocalHistory(): void {
+    try {
+      const raw = localStorage.getItem(this.HISTORY_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as HistoryEntry[];
+        this.history = parsed;
+        if (this.history.length) {
+          this.applyEntryToSite(this.history[0]);
+          this.historyError = null;
+          this.selectedSite = this.history[0].location || '';
+          this.selectedTs = this.history[0].ts;
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  private persistHistory(): void {
+    try {
+      localStorage.setItem(this.HISTORY_KEY, JSON.stringify(this.history));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  private applyEntryToSite(entry: HistoryEntry): void {
+    this.site = {
+      name: entry.location || '',
+      surface: entry.surface,
+      parkingSpots: entry.parkingSpots || 0,
+      annualEnergyKWh: entry.energyKwh,
+      employees: entry.employees,
+      materials: entry.materials || [],
+      energy: entry.energy || []
+    };
+  }
+
+  // === Sélection d'un site et date pour le dashboard ===
+  get availableSites(): string[] {
+    return this.uniqueLocations;
+  }
+
+  get availableDatesForSelectedSite(): HistoryEntry[] {
+    if (!this.selectedSite) return [];
+    return this.history.filter(h => (h.location || '') === this.selectedSite);
+  }
+
+  onSiteSelect(site: string): void {
+    this.selectedSite = site;
+    const list = this.availableDatesForSelectedSite;
+    if (list.length) {
+      this.selectedTs = list[0].ts;
+      this.applyEntryToSite(list[0]);
+    } else {
+      this.selectedTs = '';
+    }
+  }
+
+  onDateSelect(ts: string): void {
+    const entry = this.history.find(h => h.ts === ts);
+    if (entry) {
+      this.applyEntryToSite(entry);
+      this.selectedSite = entry.location || '';
+      this.selectedTs = entry.ts;
+    }
+  }
+
+  private resetModalForm(): void {
+    this.modalForm = {
+      surface: 0,
+      employees: 0,
+      location: '',
+      parkingSpots: 0,
+      materials: [{ name: '', quantity: 0, unit: 'm3' }],
+      energy: [{ source: '', kwh: 0 }]
+    };
+  }
+
+  get filteredHistory(): HistoryEntry[] {
+    if (this.locationFilter === 'all') return this.history;
+    return this.history.filter(h => (h.location || '') === this.locationFilter);
+  }
+
+  get uniqueLocations(): string[] {
+    const set = new Set(this.history.map(h => h.location).filter((v): v is string => !!v));
+    return Array.from(set);
+  }
+
+  isHistoryPage(): boolean {
+    return this.router.url.startsWith('/history');
   }
 
   // === API demo ===
@@ -176,15 +384,15 @@ export class AppComponent implements OnInit {
   }
 
   get emissionsPerM2(): number {
-    return this.totalEmissions / this.site.surface;
+    return this.site.surface ? this.totalEmissions / this.site.surface : 0;
   }
 
   get emissionsPerEmployee(): number {
-    return this.totalEmissions / this.site.employees;
+    return this.site.employees ? this.totalEmissions / this.site.employees : 0;
   }
 
   get constructionShare(): number {
-    return (this.constructionEmissions / this.totalEmissions) * 100;
+    return this.totalEmissions ? (this.constructionEmissions / this.totalEmissions) * 100 : 0;
   }
 
   get operationalShare(): number {
@@ -199,7 +407,8 @@ export class AppComponent implements OnInit {
   }
 
   get materialMax(): number {
-    return Math.max(...this.materialEmissions.map(m => m.emissions));
+    const list = this.materialEmissions.map(m => m.emissions);
+    return list.length ? Math.max(...list) : 0;
   }
 
   get energyEmissions(): { source: string; emissions: number }[] {

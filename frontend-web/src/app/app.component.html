@@ -7,9 +7,14 @@
       </p>
       <h1>{{ title }}</h1>
     </div>
+    <div class="nav-actions">
+      <button class="ghost" [routerLink]="['/']" [disabled]="!isHistoryPage()">Dashboard</button>
+      <button class="ghost" [routerLink]="['/history']" [disabled]="isHistoryPage()">Historique</button>
+      <button (click)="openModal()">Saisir un site</button>
+    </div>
   </header>
 
-  <section class="kpi-grid">
+  <section class="kpi-grid" *ngIf="!isHistoryPage()">
     <div class="kpi-card highlight">
       <p>Total</p>
       <h2>{{ totalEmissions | number:'1.0-0' }} kgCO₂e</h2>
@@ -22,8 +27,8 @@
     </div>
     <div class="kpi-card">
       <p>Exploitation</p>
-      <h3>{{ operationalEmissions | number:'1.0-0' }} kgCO₂e</h3>
-      <small>{{ operationalShare | number:'1.0-1' }}% du total</small>
+      <h3>{{ operationalEmissions | number:'1.1-1' }} kgCO₂e</h3>
+      <small>{{ operationalShare | number:'1.1-1' }}% du total</small>
     </div>
     <div class="kpi-card">
       <p>Intensité / m²</p>
@@ -37,17 +42,6 @@
     </div>
   </section>
 
-  <section class="card form-card">
-    <div class="form-card-header">
-      <div>
-        <p class="eyebrow">Saisie rapide</p>
-        <strong>Mettre à jour les données site</strong>
-      </div>
-      <button class="ghost" (click)="openModal()">Ouvrir la modal</button>
-    </div>
-    <small>Ouverture d'une fenêtre pour saisir ou corriger les données minimales.</small>
-  </section>
-
   <div class="modal-backdrop" *ngIf="modalOpen()" (click)="closeModal()"></div>
   <div class="modal" *ngIf="modalOpen()">
     <div class="modal-header">
@@ -57,19 +51,58 @@
     <div class="modal-body">
       <div class="form-grid">
         <label>
-          Surface (m²)
-          <input type="number" [(ngModel)]="modalForm.surface" min="0" />
+          Lieu / site
+          <input type="text" [(ngModel)]="modalForm.location" placeholder="Nom du site" />
         </label>
         <label>
-          Conso élec annuelle (kWh)
-          <input type="number" [(ngModel)]="modalForm.energyKwh" min="0" />
+          Surface (m²)
+          <input type="number" [(ngModel)]="modalForm.surface" min="0" />
         </label>
         <label>
           Employés
           <input type="number" [(ngModel)]="modalForm.employees" min="0" />
         </label>
+        <label>
+          Places parking
+          <input type="number" [(ngModel)]="modalForm.parkingSpots" min="0" />
+        </label>
       </div>
-      <p class="hint">Le KPI se met à jour dès que vous modifiez ces champs.</p>
+
+      <div class="fieldset">
+        <div class="fieldset-header">
+          <strong>Matériaux</strong>
+          <button class="ghost" type="button" (click)="addMaterialRow()">+ Ajouter</button>
+        </div>
+        <div class="repeat-grid">
+          <div class="repeat-row" *ngFor="let m of modalForm.materials; index as i">
+            <select [(ngModel)]="m.name" (change)="onMaterialNameChange(i)">
+              <option value="">Choisir</option>
+              <option *ngFor="let opt of materialOptions" [value]="opt">{{ opt }}</option>
+            </select>
+            <input type="number" min="0" placeholder="Quantité" [(ngModel)]="m.quantity" />
+            <input type="text" placeholder="Unité" [(ngModel)]="m.unit" />
+            <button class="ghost" type="button" (click)="removeMaterialRow(i)">×</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fieldset">
+        <div class="fieldset-header">
+          <strong>Énergie</strong>
+          <button class="ghost" type="button" (click)="addEnergyRow()">+ Ajouter</button>
+        </div>
+        <div class="repeat-grid">
+          <div class="repeat-row" *ngFor="let e of modalForm.energy; index as i">
+            <select [(ngModel)]="e.source">
+              <option value="">Choisir</option>
+              <option *ngFor="let opt of energyOptions" [value]="opt">{{ opt }}</option>
+            </select>
+            <input type="number" min="0" placeholder="kWh" [(ngModel)]="e.kwh" />
+            <button class="ghost" type="button" (click)="removeEnergyRow(i)">×</button>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button class="ghost" (click)="closeModal()">Annuler</button>
         <button (click)="saveModal()">Enregistrer</button>
@@ -77,24 +110,62 @@
     </div>
   </div>
 
-  <section class="card history-card">
-    <p class="eyebrow">Historique</p>
-    <h2>Derniers calculs enregistrés</h2>
+  <section class="card history-card" *ngIf="isHistoryPage()">
+    <div class="history-header">
+      <div>
+        <p class="eyebrow">Historique</p>
+        <h2>Derniers calculs enregistrés</h2>
+      </div>
+      <div class="history-actions">
+        <label class="filter-label">
+          Filtrer par lieu
+          <select [(ngModel)]="locationFilter">
+            <option value="all">Tous</option>
+            <option *ngFor="let loc of uniqueLocations" [value]="loc">{{ loc }}</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <small *ngIf="historyError" class="error">{{ historyError }}</small>
     <div class="history-list">
-      <div class="history-row" *ngFor="let h of history">
+      <div class="history-row" *ngFor="let h of filteredHistory">
         <div>
           <strong>{{ h.totalKg | number:'1.0-0' }} kgCO₂e</strong>
-          <small>Surface {{ h.surface | number }} m² · {{ h.energyKwh | number }} kWh · {{ h.employees | number }} employés</small>
+          <small>
+            <span *ngIf="h.location">{{ h.location }} · </span>
+            Surface {{ h.surface | number }} m² · {{ h.energyKwh | number }} kWh · {{ h.employees | number }} employés
+          </small>
         </div>
         <span class="pill">{{ h.ts | date:'short' }}</span>
       </div>
-      <div class="history-empty" *ngIf="history.length === 0">
+      <div class="history-empty" *ngIf="filteredHistory.length === 0">
         Aucun historique pour le moment.
       </div>
     </div>
   </section>
 
-  <section class="card split">
+  <section class="card selector-card" *ngIf="!isHistoryPage()">
+    <div class="selector-row">
+      <label>
+        Site
+        <select [(ngModel)]="selectedSite" (change)="onSiteSelect(selectedSite)">
+          <option value="" disabled [selected]="!selectedSite">Choisir</option>
+          <option *ngFor="let loc of availableSites" [value]="loc">{{ loc }}</option>
+        </select>
+      </label>
+      <label>
+        Date / heure
+        <select [(ngModel)]="selectedTs" (change)="onDateSelect(selectedTs)" [disabled]="!availableDatesForSelectedSite.length">
+          <option *ngFor="let d of availableDatesForSelectedSite" [value]="d.ts">
+            {{ d.ts | date:'short' }}
+          </option>
+        </select>
+      </label>
+    </div>
+    <small *ngIf="!availableSites.length">Aucun site enregistré pour l’instant.</small>
+  </section>
+
+  <section class="card split" *ngIf="!isHistoryPage()">
     <div>
       <p class="eyebrow">Répartition</p>
       <h2>Construction vs Exploitation</h2>
@@ -126,16 +197,16 @@
     </div>
   </section>
 
-  <section class="grid-2">
+  <section class="grid-2" *ngIf="!isHistoryPage()">
     <div class="card">
       <p class="eyebrow">Matériaux</p>
       <h2>Emissions par matériau</h2>
       <div class="bar" *ngFor="let m of materialEmissions">
         <div class="bar-title">{{ m.name }}</div>
         <div class="bar-track">
-          <div class="bar-fill construction" [style.width.%]="(m.emissions / materialMax) * 100"></div>
+          <div class="bar-fill construction" [style.width.%]="materialMax ? (m.emissions / materialMax) * 100 : 0"></div>
         </div>
-        <div class="bar-value">{{ m.emissions | number:'1.0-0' }} kgCO₂e</div>
+        <div class="bar-value">{{ m.emissions | number:'1.1-2' }} kgCO₂e</div>
       </div>
     </div>
 
@@ -145,14 +216,14 @@
       <div class="bar" *ngFor="let e of energyEmissions">
         <div class="bar-title">{{ e.source }}</div>
         <div class="bar-track">
-          <div class="bar-fill operation" [style.width.%]="(e.emissions / operationalEmissions) * 100"></div>
+          <div class="bar-fill operation" [style.width.%]="operationalEmissions ? (e.emissions / operationalEmissions) * 100 : 0"></div>
         </div>
-        <div class="bar-value">{{ e.emissions | number:'1.0-0' }} kgCO₂e</div>
+        <div class="bar-value">{{ e.emissions | number:'1.1-2' }} kgCO₂e</div>
       </div>
     </div>
   </section>
 
-  <section class="grid-2">
+  <section class="grid-2" *ngIf="!isHistoryPage()">
     <div class="card">
       <p class="eyebrow">Facteurs d'émission</p>
       <table class="data-table">
@@ -180,11 +251,10 @@
     </div>
 
     <div class="card">
-      <p class="eyebrow">Hypothèses site</p>
+      <p class="eyebrow">Informations du site</p>
       <ul class="info-list">
         <li><strong>Surface :</strong> {{ site.surface | number }} m²</li>
         <li><strong>Places parking :</strong> {{ site.parkingSpots | number }}</li>
-        <li><strong>Consommation annuelle :</strong> {{ site.annualEnergyKWh | number }} kWh</li>
         <li><strong>Employés :</strong> {{ site.employees | number }}</li>
         <li><strong>Matériaux :</strong>
           <ul>
