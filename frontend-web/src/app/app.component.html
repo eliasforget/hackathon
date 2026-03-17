@@ -1,27 +1,207 @@
 <main class="layout">
   <header>
-    <h1>{{ title }}</h1>
-    <p>Front Angular connecté à l'API Spring Boot.</p>
-    <p class="api-url">API: {{ apiUrl }}</p>
+    <div>
+      <p class="eyebrow">
+        Dashboard empreinte carbone
+        <span *ngIf="site.name"> - {{ site.name }}</span>
+      </p>
+      <h1>{{ title }}</h1>
+    </div>
   </header>
 
-  <section class="card">
-    <h2>Health check</h2>
-    <button (click)="loadHealth()">Tester /api/health</button>
-    <pre *ngIf="health() as h">{{ h | json }}</pre>
+  <section class="kpi-grid">
+    <div class="kpi-card highlight">
+      <p>Total</p>
+      <h2>{{ totalEmissions | number:'1.0-0' }} kgCO₂e</h2>
+      <small>Construction + exploitation</small>
+    </div>
+    <div class="kpi-card">
+      <p>Construction</p>
+      <h3>{{ constructionEmissions | number:'1.0-0' }} kgCO₂e</h3>
+      <small>{{ constructionShare | number:'1.0-1' }}% du total</small>
+    </div>
+    <div class="kpi-card">
+      <p>Exploitation</p>
+      <h3>{{ operationalEmissions | number:'1.0-0' }} kgCO₂e</h3>
+      <small>{{ operationalShare | number:'1.0-1' }}% du total</small>
+    </div>
+    <div class="kpi-card">
+      <p>Intensité / m²</p>
+      <h3>{{ emissionsPerM2 | number:'1.2-2' }} kgCO₂e/m²</h3>
+      <small>Surface : {{ site.surface | number }} m²</small>
+    </div>
+    <div class="kpi-card">
+      <p>Par employé</p>
+      <h3>{{ emissionsPerEmployee | number:'1.2-2' }} kgCO₂e</h3>
+      <small>Effectif : {{ site.employees | number }}</small>
+    </div>
   </section>
 
-  <section class="card">
-    <h2>Auth JWT démo</h2>
-    <button (click)="loginDemo()">Obtenir un token (demo/demo)</button>
-    <p *ngIf="token()">Token présent</p>
+  <section class="card form-card">
+    <div class="form-card-header">
+      <div>
+        <p class="eyebrow">Saisie rapide</p>
+        <strong>Mettre à jour les données site</strong>
+      </div>
+      <button class="ghost" (click)="openModal()">Ouvrir la modal</button>
+    </div>
+    <small>Ouverture d'une fenêtre pour saisir ou corriger les données minimales.</small>
   </section>
 
-  <section class="card">
-    <h2>Appel protégé</h2>
-    <button (click)="loadHello()">GET /api/hello</button>
-    <pre *ngIf="hello() as h">{{ h | json }}</pre>
+  <div class="modal-backdrop" *ngIf="modalOpen()" (click)="closeModal()"></div>
+  <div class="modal" *ngIf="modalOpen()">
+    <div class="modal-header">
+      <h3>Saisie des caractéristiques minimales</h3>
+      <button class="close-btn" (click)="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <label>
+          Surface (m²)
+          <input type="number" [(ngModel)]="modalForm.surface" min="0" />
+        </label>
+        <label>
+          Conso élec annuelle (kWh)
+          <input type="number" [(ngModel)]="modalForm.energyKwh" min="0" />
+        </label>
+        <label>
+          Employés
+          <input type="number" [(ngModel)]="modalForm.employees" min="0" />
+        </label>
+      </div>
+      <p class="hint">Le KPI se met à jour dès que vous modifiez ces champs.</p>
+      <div class="modal-actions">
+        <button class="ghost" (click)="closeModal()">Annuler</button>
+        <button (click)="saveModal()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="card history-card">
+    <p class="eyebrow">Historique</p>
+    <h2>Derniers calculs enregistrés</h2>
+    <div class="history-list">
+      <div class="history-row" *ngFor="let h of history">
+        <div>
+          <strong>{{ h.totalKg | number:'1.0-0' }} kgCO₂e</strong>
+          <small>Surface {{ h.surface | number }} m² · {{ h.energyKwh | number }} kWh · {{ h.employees | number }} employés</small>
+        </div>
+        <span class="pill">{{ h.ts | date:'short' }}</span>
+      </div>
+      <div class="history-empty" *ngIf="history.length === 0">
+        Aucun historique pour le moment.
+      </div>
+    </div>
   </section>
 
-  <p class="error" *ngIf="error()">{{ error() }}</p>
+  <section class="card split">
+    <div>
+      <p class="eyebrow">Répartition</p>
+      <h2>Construction vs Exploitation</h2>
+      <p>Inclut matériaux, parkings, énergie annuelle.</p>
+      <div class="legend">
+        <span class="dot construction"></span> Construction ({{ constructionShare | number:'1.0-1' }}%)
+        <span class="dot operation"></span> Exploitation ({{ operationalShare | number:'1.0-1' }}%)
+      </div>
+    </div>
+    <div class="donut-wrap">
+      <svg viewBox="0 0 36 36" class="donut">
+        <circle class="donut-ring" cx="18" cy="18" r="15.915"></circle>
+        <circle
+          class="donut-segment construction"
+          cx="18" cy="18" r="15.915"
+          [attr.stroke-dasharray]="constructionShare + ' ' + (100 - constructionShare)"
+          stroke-dashoffset="25"
+        ></circle>
+        <circle
+          class="donut-segment operation"
+          cx="18" cy="18" r="15.915"
+          [attr.stroke-dasharray]="operationalShare + ' ' + (100 - operationalShare)"
+          [attr.stroke-dashoffset]="25 - constructionShare"
+        ></circle>
+        <text x="18" y="18" text-anchor="middle" class="donut-text">
+          {{ totalEmissions | number:'1.0-0' }} kg
+        </text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <p class="eyebrow">Matériaux</p>
+      <h2>Emissions par matériau</h2>
+      <div class="bar" *ngFor="let m of materialEmissions">
+        <div class="bar-title">{{ m.name }}</div>
+        <div class="bar-track">
+          <div class="bar-fill construction" [style.width.%]="(m.emissions / materialMax) * 100"></div>
+        </div>
+        <div class="bar-value">{{ m.emissions | number:'1.0-0' }} kgCO₂e</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow">Énergie</p>
+      <h2>Emissions énergétiques</h2>
+      <div class="bar" *ngFor="let e of energyEmissions">
+        <div class="bar-title">{{ e.source }}</div>
+        <div class="bar-track">
+          <div class="bar-fill operation" [style.width.%]="(e.emissions / operationalEmissions) * 100"></div>
+        </div>
+        <div class="bar-value">{{ e.emissions | number:'1.0-0' }} kgCO₂e</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <p class="eyebrow">Facteurs d'émission</p>
+      <table class="data-table">
+        <thead>
+          <tr><th>Matériau</th><th>Facteur</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of materialFactors">
+            <td>{{ f.name }}</td>
+            <td>{{ f.factor }} kgCO₂e / {{ f.unit }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <table class="data-table">
+        <thead>
+          <tr><th>Énergie</th><th>Facteur</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of energyFactors">
+            <td>{{ f.source }}</td>
+            <td>{{ f.factor }} kgCO₂e / kWh</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow">Hypothèses site</p>
+      <ul class="info-list">
+        <li><strong>Surface :</strong> {{ site.surface | number }} m²</li>
+        <li><strong>Places parking :</strong> {{ site.parkingSpots | number }}</li>
+        <li><strong>Consommation annuelle :</strong> {{ site.annualEnergyKWh | number }} kWh</li>
+        <li><strong>Employés :</strong> {{ site.employees | number }}</li>
+        <li><strong>Matériaux :</strong>
+          <ul>
+            <li *ngFor="let m of site.materials">
+              {{ m.name }} – {{ m.quantity | number }} {{ m.unit }}
+            </li>
+          </ul>
+        </li>
+        <li><strong>Énergie :</strong>
+          <ul>
+            <li *ngFor="let e of site.energy">
+              {{ e.source }} – {{ e.kwh | number }} kWh
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </section>
+
 </main>
