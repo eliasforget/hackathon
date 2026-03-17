@@ -481,6 +481,16 @@ button:hover { background: #f4870a; }
 
 .history-row .ghost.danger:hover { background: #fee2e2; }
 
+.history-row .ghost.edit {
+  background: transparent;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  box-shadow: none;
+  padding: 0.4rem 0.7rem;
+}
+
+.history-row .ghost.edit:hover { background: #e0edff; }
+
 .confirm-meta {
   display: grid;
   gap: 0.35rem;

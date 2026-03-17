@@ -37,6 +37,20 @@ public class HistoryController {
         return ResponseEntity.ok(saved);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<HistoryEntry> update(@PathVariable Long id, @Valid @RequestBody HistoryEntry body) {
+        return historyRepository.findById(id)
+                .map(existing -> {
+                    body.setId(id);
+                    if (body.getTs() == null) {
+                        body.setTs(existing.getTs());
+                    }
+                    HistoryEntry saved = historyRepository.save(body);
+                    return ResponseEntity.ok(saved);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         Optional<HistoryEntry> existing = historyRepository.findById(id);

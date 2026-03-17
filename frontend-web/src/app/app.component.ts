@@ -88,6 +88,7 @@ export class AppComponent implements OnInit {
   selectedSite: string = '';
   selectedTs: string = '';
   pendingDeletion: HistoryEntry | null = null;
+  editingEntry: HistoryEntry | null = null;
 
   get materialOptions(): string[] {
     return this.materialFactors.map(m => m.name);
@@ -144,9 +145,21 @@ export class AppComponent implements OnInit {
     }
   }
 
-  openModal(): void {
-    // always start from a blank form to créer un nouveau site
-    this.resetModalForm();
+  openModal(entry?: HistoryEntry): void {
+    if (entry) {
+      this.editingEntry = entry;
+      this.modalForm = {
+        surface: entry.surface,
+        employees: entry.employees,
+        location: entry.location || '',
+        parkingSpots: entry.parkingSpots || 0,
+        materials: entry.materials ? entry.materials.map(m => ({ ...m })) : [],
+        energy: entry.energy ? entry.energy.map(e => ({ ...e })) : []
+      };
+    } else {
+      this.editingEntry = null;
+      this.resetModalForm();
+    }
     this.modalOpen.set(true);
   }
 
@@ -165,8 +178,11 @@ export class AppComponent implements OnInit {
     this.site.energy = this.modalForm.energy
       .map(e => ({ ...e, kwh: Number(e.kwh) || 0 }))
       .filter(e => e.source && e.kwh >= 0);
+    const ts = this.editingEntry?.ts || new Date().toISOString();
+    const id = this.editingEntry?.id;
     const entry: HistoryEntry = {
-      ts: new Date().toISOString(),
+      id,
+      ts,
       surface: this.site.surface,
       energyKwh: this.site.energy.reduce((s, e) => s + e.kwh, 0),
       employees: this.site.employees,
@@ -176,9 +192,14 @@ export class AppComponent implements OnInit {
       energy: this.site.energy,
       parkingSpots: this.site.parkingSpots
     };
-    this.saveHistoryToApi(entry);
+    if (this.editingEntry?.id) {
+      this.updateHistoryToApi(entry);
+    } else {
+      this.saveHistoryToApi(entry);
+    }
     this.closeModal();
     this.resetModalForm();
+    this.editingEntry = null;
   }
 
   loadHistoryFromApi(): void {
@@ -219,6 +240,32 @@ export class AppComponent implements OnInit {
       error: () => {
         this.historyError = 'Enregistrement en base impossible';
         this.history = [entry, ...this.history];
+        this.applyEntryToSite(entry);
+        this.selectedSite = entry.location || '';
+        this.selectedTs = entry.ts;
+        this.persistHistory();
+      }
+    });
+  }
+
+  private updateHistoryToApi(entry: HistoryEntry): void {
+    if (!entry.id) {
+      this.saveHistoryToApi(entry);
+      return;
+    }
+    this.http.put<HistoryEntry>(`${this.apiUrl}/api/history/${entry.id}`, entry, this.authOptions()).subscribe({
+      next: (saved) => {
+        const updated = saved || entry;
+        this.history = this.history.map(h => h.id === updated.id ? updated : h);
+        this.applyEntryToSite(updated);
+        this.selectedSite = updated.location || '';
+        this.selectedTs = updated.ts;
+        this.historyError = null;
+        this.persistHistory();
+      },
+      error: () => {
+        this.historyError = 'Mise à jour impossible (API ?)';
+        this.history = this.history.map(h => h.id === entry.id ? entry : h);
         this.applyEntryToSite(entry);
         this.selectedSite = entry.location || '';
         this.selectedTs = entry.ts;
@@ -362,7 +409,7 @@ export class AppComponent implements OnInit {
 
   private removeHistoryLocally(entry: HistoryEntry): void {
     const wasSelected = this.selectedTs === entry.ts;
-    this.history = this.history.filter(h => h.ts !== entry.ts);
+    this.history = this.history.filter(h => h.id ? h.id !== entry.id : h.ts !== entry.ts);
 
     if (this.locationFilter === (entry.location || '') && !this.history.some(h => (h.location || '') === (entry.location || ''))) {
       this.locationFilter = 'all';

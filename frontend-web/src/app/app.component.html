@@ -140,6 +140,14 @@
           <span class="pill">{{ h.ts | date:'short' }}</span>
           <button
             type="button"
+            class="ghost edit"
+            (click)="openModal(h)"
+            aria-label="Modifier cette ligne d'historique"
+          >
+            Modifier
+          </button>
+          <button
+            type="button"
             class="ghost danger"
             (click)="openDeleteConfirm(h)"
             aria-label="Supprimer cette ligne d'historique"

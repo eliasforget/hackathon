@@ -59,4 +59,6 @@ public class HistoryEntry {
 
     public List<EnergyUse> getEnergy() { return energy; }
     public void setEnergy(List<EnergyUse> energy) { this.energy = energy; }
+
+    public void setId(Long id) { this.id = id; }
 }
